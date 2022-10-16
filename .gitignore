@@ -54,3 +54,11 @@ dkms.conf
 *.xml
 CMakeLists.txt
 /.idea/
+
+socket.c
+socket.h
+test.c
+uf.c
+List.c
+List.h
+
