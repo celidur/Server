@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <stddef.h>
 #include <string.h>
+#include "server.h"
 #define SERVER_PORT  12345
 #define INVALID_SOCKET (-1)
 #define SOCKET_ERROR (-1)
@@ -21,15 +22,14 @@ int main ()
     int    listen_sd, new_sd;
     int    end_server = FALSE, compress_array = FALSE;
     int    close_conn;
-    //define the integer header_size size to contain 18446744073709551615
     unsigned long long* header_size = NULL;
-
     char*  buffer = NULL;
-    char   buffer2[80];
     struct sockaddr_in   addr;
     int    timeout;
     struct pollfd fds[200];
     int    nfds = 1, current_size, i, j;
+    data d;
+    d.buffer = NULL;
     listen_sd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_sd == INVALID_SOCKET)
     {
@@ -77,7 +77,8 @@ int main ()
     // activity after 3 minutes this program will end.           //
     // timeout value is based on milliseconds.                   //
     // ************************************************************* //
-    timeout = (-3 * 60 * 1000);
+    //timeout = (3 * 60 * 1000);
+    timeout = -1;
     do
     {
         // *********************************************************** //
@@ -151,11 +152,24 @@ int main ()
             {
                 //printf("  Descriptor %d is readable\n", fds[i].fd);
                 close_conn = FALSE;
-
+                if (header_size != NULL)
+                {
+                    free(header_size);
+                    header_size = NULL;
+                }
+                if (buffer != NULL)
+                {
+                    free(buffer);
+                    buffer = NULL;
+                }
+                if (d.buffer != NULL)
+                {
+                    free(d.buffer);
+                    d.buffer = NULL;
+                }
                 do
                 {
                     // reset buffer
-
                     //printf("  Receiving data from client");
                     if (header_size == NULL)
                     {
@@ -192,46 +206,63 @@ int main ()
                                 perror("  recv() failed");
                                 close_conn = TRUE;
                             }
+                            free(buffer);
+                            buffer = NULL;
                             break;
                         }
                         if (rc == 0)
                         {
                             printf("  Connection closed\n");
                             close_conn = TRUE;
+                            free(buffer);
+                            buffer = NULL;
                             break;
                         }
-                        printf("  %s\n", buffer);
-                        if(strcmp(buffer, "exit") == 0)
+                        d = server(buffer);
+                        // return code can be used to make main action
+                        // server function do all actions and return a code, and the buffer of the send message
+                        if (d.return_code < 0)
                         {
-                            memset(buffer2, 0, sizeof(buffer2));
-                            strcpy(buffer2, "Server closed");
+                            printf("  Error on read\n");
+                            close_conn = TRUE;
+                            free(buffer);
+                            buffer = NULL;
+                            if (d.buffer != NULL)
+                            {
+                                free(d.buffer);
+                                d.buffer = NULL;
+                            }
+                            break;
+                        }
+                        if (d.return_code == 1)
+                        {
+                            printf("  Server closed\n");
+                            close_conn = TRUE;
                             end_server = TRUE;
-                        } else if (strcmp(buffer, "key") == 0)
-                        {
-                            memset(buffer2, 0, sizeof(buffer2));
-                            strcpy(buffer2, "private key");
-                        } else
-                        {
-                            // define buffer2 with message
-                            memset(buffer2, 0, sizeof(buffer2));
-                            strcpy(buffer2, "Hello from server");
                         }
                         free(buffer);
-                        *header_size = strlen(buffer2);
+                        buffer = NULL;
+                        *header_size = strlen(d.buffer);
                         rc = send(fds[i].fd, header_size, sizeof(unsigned long long), 0);
                         if (rc == SOCKET_ERROR)
                         {
                             perror("  send() failed");
                             close_conn = TRUE;
+                            free(d.buffer);
+                            d.buffer = NULL;
                             break;
                         }
-                        rc = send(fds[i].fd, buffer2, strlen(buffer2), 0);
+                        rc = send(fds[i].fd, d.buffer, strlen(d.buffer), 0);
                         if (rc == SOCKET_ERROR)
                         {
                             perror("  send() failed");
                             close_conn = TRUE;
+                            free(d.buffer);
+                            d.buffer = NULL;
                             break;
                         }
+                        free(d.buffer);
+                        d.buffer = NULL;
                         free(header_size);
                         header_size = NULL;
                     }
@@ -243,8 +274,8 @@ int main ()
                     fds[i].fd = -1;
                     compress_array = TRUE;
                 }
-            }  // End of existing connection is readable
-        } // End of loop through pollable descriptors
+            }
+        }
         // delete closed connexion
         if (compress_array)
         {
@@ -270,4 +301,20 @@ int main ()
         if(fds[i].fd >= 0)
             close(fds[i].fd);
     }
+    if (header_size != NULL)
+    {
+        free(header_size);
+        header_size = NULL;
+    }
+    if (buffer != NULL)
+    {
+        free(buffer);
+        buffer = NULL;
+    }
+    if (d.buffer != NULL)
+    {
+        free(d.buffer);
+        d.buffer = NULL;
+    }
+
 }
