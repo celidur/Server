@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "rsa.h"
+#include <time.h>
 
 bytes to_bytes(const unsigned long long n) {
     st size = 1;
@@ -13,7 +14,7 @@ bytes to_bytes(const unsigned long long n) {
         data[i] = tmp % 256;
         tmp /= 256;
     }
-    return (bytes){data, size};
+    return (bytes) {data, size};
 }
 
 unsigned long long to_ull(const bytes a) {
@@ -28,102 +29,179 @@ void print_bytes(bytes b) {
         printf("%02x", b.data[i]);
 }
 
-bytes add(const bytes a, const bytes b) {
-    st size = a.size > b.size ? a.size : b.size;
-    byte data[size];
-    int carry = 0;
-    for (st i = 0; i < size; i++) {
-        int sum = carry;
-        if (i < a.size) sum += a.data[i];
-        if (i < b.size) sum += b.data[i];
-        data[i] = sum % 256;
-        carry = sum / 256;
-    }
-    if (carry) {
-        data[size] = carry;
-        size++;
-    }
-    return (bytes){data, size};
-}
-
 bytes mul(const bytes a, const bytes b) {
-    st size = a.size + b.size;
-    byte data[size];
-    for (st i = 0; i < size; i++)
-        data[i] = 0;
+    bytes res = {NULL, a.size + b.size};
+    res.data = malloc(res.size * sizeof(byte));
+    for (st i = 0; i < res.size; i++)
+        res.data[i] = 0;
     for (st i = 0; i < a.size; i++) {
         for (st j = 0; j < b.size; j++) {
-            int sum = data[i + j] + a.data[i] * b.data[j];
-            data[i + j] = sum % 256;
-            data[i + j + 1] += sum / 256;
+            int temp = res.data[i + j] + a.data[i] * b.data[j];
+            res.data[i + j] = temp % 256;
+            res.data[i + j + 1] += temp / 256;
+
         }
     }
-    while (size > 1 && data[size - 1] == 0) size--;
-    return (bytes){data, size};
+    while (res.data[res.size - 1] == 0 && res.size > 1) res.size--;
+    res.data = realloc(res.data, res.size * sizeof(byte));
+    return res;
 }
 
 bytes half(const bytes a) {
-    st size = a.size;
-    byte data[size];
-    int carry = 0;
-    for (st i = size - 1; i < size; i--) {
-        int sum = a.data[i] + carry * 256;
-        data[i] = sum / 2;
-        carry = sum % 2;
+    bytes res = {NULL, a.size};
+    res.data = malloc(res.size * sizeof(byte));
+    for (st i = 0; i < res.size; i++) {
+        res.data[i] = a.data[i] >> 1;
+        if (i + 1 < res.size)
+            res.data[i] += a.data[i + 1] << 7;
     }
-    while (size > 1 && data[size - 1] == 0) size--;
-    return (bytes){data, size};
+    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
+    res.data = realloc(res.data, res.size * sizeof(byte));
+    return res;
+
 }
 
-bytes mod(const bytes a, const bytes b) {
-    st size = a.size;
-    byte *data = malloc(size * sizeof(byte));
-    for (st i = 0; i < size; i++)
-        data[i] = a.data[i];
-    int div, diff, carry;
-    while (size >= b.size && (div = data[size - 1] / b.data[b.size - 1])) {
-        if (div == 1) { // checks if data > b
-            for (st i = 0; i < b.size; i++) {
-                if (data[size - b.size + i] > b.data[i]) break;
-                if (data[size - b.size + i] < b.data[i]) {
-                    div = 0;
-                    break;
-                }
-            }
-        }
-        if (!div) break;
-        carry = 0;
-        for (st i = 0; i < b.size; i++) {
-            diff = data[size - b.size + i] - div * b.data[i] + carry;
-            if (diff < 0) {
-                if (diff % 256) {
-                    carry = diff / 256 - 1;
-                    diff = diff % 256 + 256;
-                } else {
-                    carry = diff / 256;
-                    diff = 0;
-                }
-            }
-            else carry = 0;
-            data[size - b.size + i] = diff;
-        }
-        while (size > 1 && data[size - 1] == 0) size--;
+int sup(const bytes a, const bytes b) {
+    //a > b
+    if (a.size > b.size)
+        return 1;
+    if (a.size < b.size)
+        return 0;
+    for (st i = a.size - 1; i < a.size; i--) {
+        if (a.data[i] > b.data[i])
+            return 1;
+        if (a.data[i] < b.data[i])
+            return 0;
     }
-    data = realloc(data, size * sizeof(byte));
-    return (bytes){data, size};
+    return 0;
+
 }
 
-bytes pow_mod(const bytes a, const bytes b, const bytes c) {
-    // printf("%llu ^ %llu mod %llu\n", to_ull(a), to_ull(b), to_ull(c));
-    if (b.size == 1 && b.data[0] == 0) return to_bytes(1);
-    if (b.data[0] % 2) return mod(mul(a, pow_mod(mod(mul(a, a), c), half(b), c)), c);
-    return mod(pow_mod(mul(a, a), half(b), c), c);
+int equal(const bytes a, const bytes b) {
+    if (a.size != b.size)
+        return 0;
+    for (st i = 0; i < a.size; i++) {
+        if (a.data[i] != b.data[i])
+            return 0;
+    }
+    return 1;
 }
+
+bytes sub(const bytes a, const bytes b) {
+    if (sup(b, a)) {
+        printf("Error: a < b\n");
+        return (bytes) {NULL, 0};
+    }
+    bytes res = {NULL, a.size > b.size ? a.size : b.size};
+    res.data = malloc(res.size * sizeof(byte));
+    for (st i = 0; i < res.size; i++) {
+        res.data[i] = a.data[i];
+    }
+    for (st i = 0; i < b.size; i++) {
+        int temp = res.data[i] - b.data[i];
+        if (temp < 0) {
+            temp += 256;
+            st j = i + 1;
+            while (res.data[j] == 0) {
+                res.data[j] = 255;
+                j++;
+            }
+            res.data[j]--;
+        }
+        res.data[i] = temp;
+    }
+    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
+    res.data = realloc(res.data, res.size * sizeof(byte));
+    return res;
+}
+
+bytes mod(const bytes a, bytes b) {
+    printf("hex(0x");
+    print_bytes(a);
+    printf("%%0x");
+    print_bytes(b);
+    printf(") = ");
+    bytes x = {NULL, b.size};
+    x.data = malloc(x.size * sizeof(byte));
+    for (st i = 0; i < x.size; i++) {
+        x.data[i] = b.data[i];
+    }
+    bytes y = half(a);
+    byte *temp = NULL;
+    while (sup(y, x) || equal(y, x)) {
+        temp = x.data;
+        x = mul(x, to_bytes(2));
+        free(temp);
+    }
+    free(y.data);
+    bytes res = {NULL, a.size};
+    res.data = malloc(res.size * sizeof(byte));
+    for (st i = 0; i < res.size; i++) {
+        res.data[i] = a.data[i];
+    }
+    while (sup(res, b) || equal(res, b)) {
+        if (sup(res, x) || equal(res, x)) {
+            temp = res.data;
+            res = sub(res, x);
+            free(temp);
+        }
+        temp = x.data;
+        x = half(x);
+        free(temp);
+    }
+    free(x.data);
+    printf("0x");
+    print_bytes(res);
+    printf("\n");
+    return res;
+}
+
+bytes pow_mod(const bytes b, const bytes e, const bytes m) {
+    if (m.size == 1 && m.data[0] == 0)
+        return to_bytes(0);
+    byte *temp = NULL;
+    bytes res = {NULL, 1};
+    res.data = malloc(res.size * sizeof(byte));
+    res.data[0] = 1;
+    bytes base = mod(b, m);
+    bytes exp = {NULL, e.size};
+    exp.data = malloc(exp.size * sizeof(byte));
+    for (st i = 0; i < exp.size; i++)
+        exp.data[i] = e.data[i];
+    while (exp.size > 1 || exp.data[0] != 0) {
+        if (exp.data[0] % 2 == 1) {
+            temp = res.data;
+            res = mod(mul(res, base), m);
+            free(temp);
+        }
+        temp = base.data;
+        base = mod(mul(base, base), m);
+        free(temp);
+        temp = exp.data;
+        exp = half(exp);
+        free(temp);
+    }
+    return res;
+}
+
 
 int main() {
-    bytes a = to_bytes(2);
-    bytes b = to_bytes(3);
-    bytes c = to_bytes(5);
+    bytes a = to_bytes(1234567890);
+    bytes b = to_bytes(98765);
+    bytes c = to_bytes(36753197);
     print_bytes(pow_mod(a, b, c));
     printf("\n");
+    print_bytes(sub(to_bytes(1), to_bytes(1)));
+
+
+
+    //printf("pow(%llu,%llu,%llu)=%llu\n", to_ull(a), to_ull(b), to_ull(c),to_ull(pow_mod(a, b, c)));
+    //printf("\n");
+    //unsigned long long x = to_ull(pow_mod(a, b, c));
+    //printf("%llu\n", x);
+    //unsigned long long y = pow(5, 44) ;
+    //printf("%llu\n", (to_ull(a)*to_ull(b))%to_ull(c));
+
+
+
 }
