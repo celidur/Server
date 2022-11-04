@@ -19,8 +19,11 @@ bytes to_bytes(const unsigned long long n) {
 
 unsigned long long to_ull(const bytes a) {
     unsigned long long n = 0;
-    for (st i = 0; i < a.size; i++)
-        n += a.data[i] * (1 << (8 * i));
+    unsigned long long tmp = 1;
+    for (st i = 0; i < a.size; i++) {
+        n += a.data[i] * tmp;
+        tmp <<= 8;
+    }
     return n;
 }
 
@@ -39,7 +42,6 @@ bytes mul(const bytes a, const bytes b) {
             int temp = res.data[i + j] + a.data[i] * b.data[j];
             res.data[i + j] = temp % 256;
             res.data[i + j + 1] += temp / 256;
-
         }
     }
     while (res.data[res.size - 1] == 0 && res.size > 1) res.size--;
@@ -61,6 +63,20 @@ bytes half(const bytes a) {
 
 }
 
+bytes double_bytes(const bytes a) {
+    bytes res = {NULL, a.size + 1};
+    res.data = malloc(res.size * sizeof(byte));
+    for (st i = 0; i < res.size; i++) {
+        int temp = a.data[i] << 1;
+        res.data[i] += temp % 256;
+        if (i + 1 < res.size)
+            res.data[i + 1] += temp / 256;
+    }
+    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
+    res.data = realloc(res.data, res.size * sizeof(byte));
+    return res;
+}
+
 int sup(const bytes a, const bytes b) {
     //a > b
     if (a.size > b.size)
@@ -75,16 +91,6 @@ int sup(const bytes a, const bytes b) {
     }
     return 0;
 
-}
-
-int equal(const bytes a, const bytes b) {
-    if (a.size != b.size)
-        return 0;
-    for (st i = 0; i < a.size; i++) {
-        if (a.data[i] != b.data[i])
-            return 0;
-    }
-    return 1;
 }
 
 bytes sub(const bytes a, const bytes b) {
@@ -116,31 +122,26 @@ bytes sub(const bytes a, const bytes b) {
 }
 
 bytes mod(const bytes a, bytes b) {
-    printf("hex(0x");
-    print_bytes(a);
-    printf("%%0x");
-    print_bytes(b);
-    printf(") = ");
+    byte *temp = NULL;
     bytes x = {NULL, b.size};
     x.data = malloc(x.size * sizeof(byte));
     for (st i = 0; i < x.size; i++) {
         x.data[i] = b.data[i];
     }
-    bytes y = half(a);
-    byte *temp = NULL;
-    while (sup(y, x) || equal(y, x)) {
-        temp = x.data;
-        x = mul(x, to_bytes(2));
-        free(temp);
-    }
-    free(y.data);
     bytes res = {NULL, a.size};
     res.data = malloc(res.size * sizeof(byte));
     for (st i = 0; i < res.size; i++) {
         res.data[i] = a.data[i];
     }
-    while (sup(res, b) || equal(res, b)) {
-        if (sup(res, x) || equal(res, x)) {
+    bytes y = half(a);
+    while (sup(x, y) == 0) {
+        temp = x.data;
+        x = double_bytes(x);
+        free(temp);
+    }
+    free(y.data);
+    while (sup(b, res) == 0) {
+        if (sup(x, res) == 0) {
             temp = res.data;
             res = sub(res, x);
             free(temp);
@@ -150,9 +151,6 @@ bytes mod(const bytes a, bytes b) {
         free(temp);
     }
     free(x.data);
-    printf("0x");
-    print_bytes(res);
-    printf("\n");
     return res;
 }
 
@@ -168,14 +166,14 @@ bytes pow_mod(const bytes b, const bytes e, const bytes m) {
     exp.data = malloc(exp.size * sizeof(byte));
     for (st i = 0; i < exp.size; i++)
         exp.data[i] = e.data[i];
-    while (exp.size > 1 || exp.data[0] != 0) {
+    while (sup(exp, to_bytes(0))) {
         if (exp.data[0] % 2 == 1) {
             temp = res.data;
-            res = mod(mul(res, base), m);
+            res = mod(mul(res, base), m); //fix memory leak
             free(temp);
         }
         temp = base.data;
-        base = mod(mul(base, base), m);
+        base = mod(mul(base, base), m);//fix memory leak
         free(temp);
         temp = exp.data;
         exp = half(exp);
@@ -186,12 +184,13 @@ bytes pow_mod(const bytes b, const bytes e, const bytes m) {
 
 
 int main() {
-    bytes a = to_bytes(1234567890);
+    bytes a = to_bytes(76849985989684);
     bytes b = to_bytes(98765);
     bytes c = to_bytes(36753197);
-    print_bytes(pow_mod(a, b, c));
+    print_bytes(mod(a, b));
     printf("\n");
-    print_bytes(sub(to_bytes(1), to_bytes(1)));
+    printf("%llu\n", to_ull(mod(a, b)));
+
 
 
 
