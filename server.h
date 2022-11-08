@@ -14,6 +14,7 @@
 #include <stddef.h>
 
 #include <string.h>
+#include "List.h"
 #define SERVER__SERVER_H
 
 #endif //SERVER__SERVER_H
@@ -23,4 +24,5 @@ struct data {
     char *buffer;
 };
 typedef struct data data;
-data server(char* buffer);
+
+data server(char *buffer, List *list, unsigned int *hash);

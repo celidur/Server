@@ -55,10 +55,12 @@ dkms.conf
 CMakeLists.txt
 /.idea/
 
-socket.c
-socket.h
+client.c
+client.h
 test.c
 uf.c
 List.c
 List.h
+AES.c
+AES.h
 

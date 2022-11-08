@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <string.h>
 #include "server.h"
+#include "List.h"
 #define SERVER_PORT  12345
 #define INVALID_SOCKET (-1)
 #define SOCKET_ERROR (-1)
@@ -18,26 +19,27 @@
 int main ()
 {
     int    on = 1;
-    long   rc;
-    int    listen_sd, new_sd;
-    int    end_server = FALSE, compress_array = FALSE;
-    int    close_conn;
-    unsigned long long* header_size = NULL;
-    char*  buffer = NULL;
-    struct sockaddr_in   addr;
-    int    timeout;
+    long rc;
+    int listen_sd, new_sd;
+    int end_server = FALSE, compress_array = FALSE;
+    int close_conn;
+    unsigned long long *header_size = NULL;
+    char *buffer = NULL;
+    struct sockaddr_in addr;
+    int timeout;
     struct pollfd fds[200];
-    int    nfds = 1, current_size, i, j;
+    int nfds = 1, current_size, i, j;
+    List *list = initialisation();
+    unsigned int seed = 0;
     data d;
     d.buffer = NULL;
     listen_sd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listen_sd == INVALID_SOCKET)
-    {
+    if (listen_sd == INVALID_SOCKET) {
         perror("socket");
         return EXIT_FAILURE;
     }
     // Allow socket descriptor to be reuseable
-    rc = setsockopt(listen_sd, SOL_SOCKET,  SO_REUSEADDR, (char *)&on, sizeof(on));
+    rc = setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, (char *) &on, sizeof(on));
     if (rc == SOCKET_ERROR)
     {
         perror("setsockopt");
@@ -197,7 +199,7 @@ int main ()
                             break;
                         }
                     } else {
-                        buffer = (char*) malloc(*header_size);
+                        buffer = get_buffer(*header_size);
                         rc = recv(fds[i].fd, buffer, *header_size, 0);
                         if (rc < 0)
                         {
@@ -218,7 +220,7 @@ int main ()
                             buffer = NULL;
                             break;
                         }
-                        d = server(buffer);
+                        d = server(buffer, list, &seed);
                         // return code can be used to make main action
                         // server function do all actions and return a code, and the buffer of the send message
                         if (d.return_code < 0)
@@ -227,25 +229,38 @@ int main ()
                             close_conn = TRUE;
                             free(buffer);
                             buffer = NULL;
-                            if (d.buffer != NULL)
-                            {
+                            if (d.buffer != NULL) {
                                 free(d.buffer);
                                 d.buffer = NULL;
                             }
                             break;
-                        }
-                        if (d.return_code == 1)
-                        {
+                        } else if (d.return_code == 1) {
                             printf("  Server closed\n");
                             close_conn = TRUE;
                             end_server = TRUE;
+                        } else if (d.return_code == 2) {
+                            /*
+                            char* temp = IntToString(seed);
+                            printf("  New seed : %s\n", temp);
+                            printf(" size list : %d\n", list->size);
+                            Client *c = findElement(list, temp);
+                            if (c != NULL)
+                            {
+                                printf("  Client timeout in %d\n", c->last_activity);
+                            }
+                            free(temp);*/
+                            seed = (seed * 1103515245 + 12345) >> 1;
                         }
                         free(buffer);
                         buffer = NULL;
+                        if (d.buffer == NULL) {
+                            printf("  Error on read\n");
+                            close_conn = TRUE;
+                            break;
+                        }
                         *header_size = strlen(d.buffer);
                         rc = send(fds[i].fd, header_size, sizeof(unsigned long long), 0);
-                        if (rc == SOCKET_ERROR)
-                        {
+                        if (rc == SOCKET_ERROR) {
                             perror("  send() failed");
                             close_conn = TRUE;
                             free(d.buffer);
@@ -316,5 +331,6 @@ int main ()
         free(d.buffer);
         d.buffer = NULL;
     }
+    del(list);
 
 }
