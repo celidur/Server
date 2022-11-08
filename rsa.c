@@ -32,17 +32,62 @@ void print_bytes(bytes b) {
         printf("%02x", b.data[i]);
 }
 
+bytes double_bytes(const bytes a) {
+    bytes res = {NULL, a.size + 1};
+    res.data = malloc(res.size * sizeof(byte));
+    for (st i = 0; i < res.size; i++) {
+        int temp = a.data[i] << 1;
+        res.data[i] += temp % 256;
+        if (i + 1 < res.size)
+            res.data[i + 1] += temp / 256;
+    }
+    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
+    res.data = realloc(res.data, res.size * sizeof(byte));
+    return res;
+}
+
+bytes add(const bytes a, const bytes b) {
+    st size = (a.size > b.size ? a.size : b.size) + 1;
+    byte *data = malloc(size * sizeof(byte));
+    for (st i = 0; i < size; i++)
+        data[i] = 0;
+    for (st i = 0; i < size; i++) {
+        int d = data[i] + (i < a.size ? a.data[i] : 0) + (i < b.size ? b.data[i] : 0);
+        data[i] = d % 256;
+        d /= 256;
+        int k = 1;
+        while (d > 0) {
+            d = data[i + k] + d;
+            data[i + k] = d % 256;
+            d /= 256;
+        }
+    }
+    return (bytes) {data, size};
+}
+
 bytes mul(const bytes a, const bytes b) {
     bytes res = {NULL, a.size + b.size};
+    byte *clear;
     res.data = malloc(res.size * sizeof(byte));
     for (st i = 0; i < res.size; i++)
         res.data[i] = 0;
     for (st i = 0; i < a.size; i++) {
+        bytes tmp = {NULL, b.size + 1};
+        tmp.data = malloc(tmp.size * sizeof(byte));
         for (st j = 0; j < b.size; j++) {
-            int temp = res.data[i + j] + a.data[i] * b.data[j];
-            res.data[i + j] = temp % 256;
-            res.data[i + j + 1] += temp / 256;
+            int t = a.data[i] * b.data[j] + tmp.data[j];
+            tmp.data[j] = t % 256;
+            tmp.data[j + 1] = t / 256;
         }
+        for (int j = 0; j < 8 * i; ++j) {
+            clear = tmp.data;
+            tmp = double_bytes(tmp);
+            free(clear);
+        }
+        clear = res.data;
+        res = add(res, tmp);
+        free(tmp.data);
+        free(clear);
     }
     while (res.data[res.size - 1] == 0 && res.size > 1) res.size--;
     res.data = realloc(res.data, res.size * sizeof(byte));
@@ -63,19 +108,7 @@ bytes half(const bytes a) {
 
 }
 
-bytes double_bytes(const bytes a) {
-    bytes res = {NULL, a.size + 1};
-    res.data = malloc(res.size * sizeof(byte));
-    for (st i = 0; i < res.size; i++) {
-        int temp = a.data[i] << 1;
-        res.data[i] += temp % 256;
-        if (i + 1 < res.size)
-            res.data[i + 1] += temp / 256;
-    }
-    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
-    res.data = realloc(res.data, res.size * sizeof(byte));
-    return res;
-}
+
 
 int sup(const bytes a, const bytes b) {
     //a > b
@@ -151,6 +184,7 @@ bytes mod(const bytes a, bytes b) {
         free(temp);
     }
     free(x.data);
+    res.data = realloc(res.data, res.size * sizeof(byte));
     return res;
 }
 
@@ -159,6 +193,7 @@ bytes pow_mod(const bytes b, const bytes e, const bytes m) {
         return to_bytes(0);
     byte *temp = NULL;
     bytes res = {NULL, 1};
+    bytes clear;
     res.data = malloc(res.size * sizeof(byte));
     res.data[0] = 1;
     bytes base = mod(b, m);
@@ -169,11 +204,15 @@ bytes pow_mod(const bytes b, const bytes e, const bytes m) {
     while (sup(exp, to_bytes(0))) {
         if (exp.data[0] % 2 == 1) {
             temp = res.data;
-            res = mod(mul(res, base), m); //fix memory leak
+            clear = mul(res, base);
+            res = mod(clear, m);
             free(temp);
+            free(clear.data);
         }
         temp = base.data;
-        base = mod(mul(base, base), m);//fix memory leak
+        clear = mul(base, base);
+        base = mod(clear, m);
+        free(clear.data);
         free(temp);
         temp = exp.data;
         exp = half(exp);
@@ -184,23 +223,8 @@ bytes pow_mod(const bytes b, const bytes e, const bytes m) {
 
 
 int main() {
-    bytes a = to_bytes(76849985989684);
-    bytes b = to_bytes(98765);
-    bytes c = to_bytes(36753197);
-    print_bytes(mod(a, b));
-    printf("\n");
-    printf("%llu\n", to_ull(mod(a, b)));
-
-
-
-
-    //printf("pow(%llu,%llu,%llu)=%llu\n", to_ull(a), to_ull(b), to_ull(c),to_ull(pow_mod(a, b, c)));
-    //printf("\n");
-    //unsigned long long x = to_ull(pow_mod(a, b, c));
-    //printf("%llu\n", x);
-    //unsigned long long y = pow(5, 44) ;
-    //printf("%llu\n", (to_ull(a)*to_ull(b))%to_ull(c));
-
-
-
+    bytes a = to_bytes(2467327685);
+    bytes b = to_bytes(1224214);
+    bytes c = to_bytes(23452138);
+    print_bytes(pow_mod(a, b, c));
 }
