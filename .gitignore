@@ -55,12 +55,8 @@ dkms.conf
 CMakeLists.txt
 /.idea/
 
-client.c
-client.h
 test.c
 uf.c
-List.c
-List.h
 AES.c
 AES.h
 

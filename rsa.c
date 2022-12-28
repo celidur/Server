@@ -128,11 +128,14 @@ int main() {
     start = clock();
     for (int i = 0; i < 10000; ++i) {
         bytes a = lib->random_bytes(16, &lib->seed);
+        lib->pow_mod(a, lib->to_bytes(55673), lib->to_bytes(304));
         free(a.data);
     }
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("%f", cpu_time_used);
+    bytes a = lib->to_bytes(8994);
+    lib->print(a);
     free(lib);
     return 0;
 }
