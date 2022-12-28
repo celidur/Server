@@ -1,10 +1,13 @@
 #pragma once
+#ifndef RSA_H
+
 #include <stdlib.h>
+#include "Bytes.h"
 
-typedef unsigned char byte;
-typedef size_t st;
+bytes crypt(bytes m, bytes key_0, bytes key_1);
 
-typedef struct {
-    byte *data;
-    st size;
-} bytes;
+int is_prime(bytes n);
+
+
+#endif
+#define RSA_H
