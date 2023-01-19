@@ -257,7 +257,7 @@ bytes random_bytes(const st size, long int *seed) {
     long int temp2;
     for (st i = 0; i < res.size; i++) {
         temp2 = temp % 256;
-        temp <<= 8;
+        temp >>= 8;
         res.data[i] = temp2;
         if (temp == 0) {
             random_int(seed);

@@ -96,10 +96,17 @@ int is_prime(const bytes n) {
     for (int i = 0; i < 168; i++) {
         bytes low_prime = lib->to_bytes(low_primes[i]);
         if (lib->equals(n, low_prime)) {
+            free(low_prime.data);
+            free(lib);
             return 1;
         }
         bytes calc = lib->mod(n, low_prime);
+        lib->print(calc);
+        printf(" %d\n", low_primes[i]);
         if (calc.size == 1 && calc.data[0] == 0) {
+            free(calc.data);
+            free(low_prime.data);
+            free(lib);
             return 0;
         }
         free(calc.data);
@@ -115,27 +122,38 @@ int main() {
     Bytes_lib *lib = bytes_lib();
 
     //srand(time(0));
-    //bytes a = lib->hex_to_bytes("b33cfdbcfc292eab088c80c88d548eddb99edfc38df1a5b9212e8c762acb0e5f96ff2e717db218bcfbf261bcdcd88899c172063f75e127fe9a86559aeb60e375ae2ff73dc33b37274b1f2a611d9ba19696bba1b411206d82c351c14ad82c65479b1baceeea250c4c8a5f0eccd505e2e99b03224d7fd5e21bfc1c2c33675fbd2b886bfe3ce35fa58976ca9ff25da090016a2172997120c95fe6df6df1de05dacad8c85f2ac06549fe37f5d868dccdd9c9946068a1bf24c660e4e9c5dc2a60a97455b4a27bfc0c0de2afd8684d2a19d1b4ac3b1ee4e70257b29959f37b8058eb9da2d5c8fb7bc8c8e68decaa62e071b6d2e1b8a7575a2dcfdcf10ade5b40e41a35");
-    //printf("\n%lu", lib->seed);
-    //printf("\n%zu\n", a.size);
-    //printf("%d\n", is_prime(a));
-    //free(a.data);
-
+    /*
+    bytes a = lib->hex_to_bytes("b33cfdbcfc292eab088c80c88d548eddb99edfc38df1a5b9212e8c762acb0e5f96ff2e717db218bcfbf261bcdcd88899c172063f75e127fe9a86559aeb60e375ae2ff73dc33b37274b1f2a611d9ba19696bba1b411206d82c351c14ad82c65479b1baceeea250c4c8a5f0eccd505e2e99b03224d7fd5e21bfc1c2c33675fbd2b886bfe3ce35fa58976ca9ff25da090016a2172997120c95fe6df6df1de05dacad8c85f2ac06549fe37f5d868dccdd9c9946068a1bf24c660e4e9c5dc2a60a97455b4a27bfc0c0de2afd8684d2a19d1b4ac3b1ee4e70257b29959f37b8058eb9da2d5c8fb7bc8c8e68decaa62e071b6d2e1b8a7575a2dcfdcf10ade5b40e41a35");
+    printf("\n%lu", lib->seed);
+    printf("\n%zu\n", a.size);
+    printf("%d\n", is_prime(a));
+    free(a.data);
+    */
 
     // mesure the time of the function
     clock_t start, end;
     double cpu_time_used;
-    start = clock();
-    for (int i = 0; i < 10000; ++i) {
+/*
+    for (int i = 0; i < 1000000; ++i) {
         bytes a = lib->random_bytes(16, &lib->seed);
-        lib->pow_mod(a, lib->to_bytes(55673), lib->to_bytes(304));
+        lib->print(a);
+        printf("\n");
         free(a.data);
-    }
+    }*/
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("%f", cpu_time_used);
-    bytes a = lib->to_bytes(8994);
-    lib->print(a);
+    printf("\n");
+    //printf("\n");
+    bytes a = lib->hex_to_bytes("b33cfdbcfc292eab088c80c88d548eddb99edfc38df1a5b9212e8c762acb0e5f96ff2e717db218bcfbf261bcdcd88899c172063f75e127fe9a86559aeb60e375ae2ff73dc33b37274b1f2a611d9ba19696bba1b411206d82c351c14ad82c65479b1baceeea250c4c8a5f0eccd505e2e99b03224d7fd5e21bfc1c2c33675fbd2b886bfe3ce35fa58976ca9ff25da090016a2172997120c95fe6df6df1de05dacad8c85f2ac06549fe37f5d868dccdd9c9946068a1bf24c660e4e9c5dc2a60a97455b4a27bfc0c0de2afd8684d2a19d1b4ac3b1ee4e70257b29959f37b8058eb9da2d5c8fb7bc8c8e68decaa62e071b6d2e1b8a7575a2dcfdcf10ade5b40e41a35");
+    bytes b = lib->to_bytes(5);
+    bytes c = lib->mod(a, b);
+    lib->print(c);
+    printf("\n");
+    free(c.data);
+    free(b.data);
+    free(a.data);
+
     free(lib);
     return 0;
 }
