@@ -13,44 +13,56 @@ bytes crypt(const bytes m, const bytes key_0, const bytes key_1) {
 
 int miller_rabin(const bytes n) {
     Bytes_lib *lib = bytes_lib();
-    bytes s = lib->sub(n, lib->to_bytes(1));
-    bytes t = lib->to_bytes(0);
     bytes num_2 = lib->to_bytes(2);
     bytes num_1 = lib->to_bytes(1);
-    bytes calc = lib->mod(s, num_2);
+    bytes num_4 = lib->to_bytes(4);
+    bytes s = lib->sub(n, num_1);
+    bytes t = lib->to_bytes(0);
+    bytes calc;
     byte *free_memory = NULL;
-    while (calc.data[0] == 0) {
-        free(calc.data);
-        free_memory = t.data;
-        t = lib->add(t, num_1);
-        free(free_memory);
+    while (s.data[0] == 0){
         free_memory = s.data;
         s = lib->half(s);
         free(free_memory);
-        calc = lib->mod(s, num_2);
+        free_memory = t.data;
+        t = lib->add(t, num_1);
+        free(free_memory);
     }
-    free(calc.data);
-    for (int i = 0; i < 10; ++i) {
-        bytes a;
-        do {
-            a = lib->random_bytes(n.size * 2, &lib->seed);
-            calc = lib->mod(a, n);
-            free(a.data);
-            a.data = calc.data;
-            a.size = calc.size;
-            free(calc.data);
-        } while (a.size == 1 && a.data[0] <= 0);
+
+    for (int i = 0; i < 10; i++)
+    {
+        bytes a = lib->random_bytes(n.size * 2, &lib->seed);
+        free_memory = a.data;
+        calc = lib->sub(n,num_4);
+        a = lib->mod(a, calc);
+        free(free_memory);
+        free_memory = a.data;
+        a = lib->add(a, num_2);
+        free(free_memory);
+        free(calc.data);
+
         bytes x = lib->pow_mod(a, s, n);
+        free(a.data);
         if (x.size == 1 && x.data[0] == 1) {
-            free(x.data);
-            continue;
+            return 0;
         }
+        calc = lib->sub(n, num_1);
         bytes j = lib->to_bytes(0);
-        bytes n_minus_1 = lib->sub(n, num_1);
-        while (lib->equals(n_minus_1, x) == 0) {
+        while (lib->equals(x, calc) == 0) {
+            free(calc.data);
             calc = lib->sub(t, num_1);
-            if (lib->equals(calc, j))
+            if (lib->equals(j, calc) == 1) {
+                free(calc.data);
+                free(j.data);
+                free(t.data);
+                free(s.data);
+                free(num_1.data);
+                free(num_2.data);
+                free(num_4.data);
+                free(x.data);
+                free(lib);
                 return 0;
+            }
             free(calc.data);
             free_memory = j.data;
             j = lib->add(j, num_1);
@@ -58,18 +70,18 @@ int miller_rabin(const bytes n) {
             free_memory = x.data;
             x = lib->pow_mod(x, num_2, n);
             free(free_memory);
+            calc = lib->sub(n, num_1);
         }
-        free(n_minus_1.data);
+        free(j.data);
         free(calc.data);
         free(x.data);
-        free(a.data);
-        free(j.data);
     }
     free(lib);
-    free(t.data);
     free(s.data);
+    free(t.data);
     free(num_2.data);
     free(num_1.data);
+    free(num_4.data);
     return 1;
 }
 
@@ -101,8 +113,6 @@ int is_prime(const bytes n) {
             return 1;
         }
         bytes calc = lib->mod(n, low_prime);
-        lib->print(calc);
-        printf(" %d\n", low_primes[i]);
         if (calc.size == 1 && calc.data[0] == 0) {
             free(calc.data);
             free(low_prime.data);
@@ -113,7 +123,6 @@ int is_prime(const bytes n) {
         free(low_prime.data);
     }
     free(lib);
-    printf("miller_rabin\n");
     return miller_rabin(n);
 }
 
@@ -121,37 +130,22 @@ int is_prime(const bytes n) {
 int main() {
     Bytes_lib *lib = bytes_lib();
 
-    //srand(time(0));
-    /*
-    bytes a = lib->hex_to_bytes("b33cfdbcfc292eab088c80c88d548eddb99edfc38df1a5b9212e8c762acb0e5f96ff2e717db218bcfbf261bcdcd88899c172063f75e127fe9a86559aeb60e375ae2ff73dc33b37274b1f2a611d9ba19696bba1b411206d82c351c14ad82c65479b1baceeea250c4c8a5f0eccd505e2e99b03224d7fd5e21bfc1c2c33675fbd2b886bfe3ce35fa58976ca9ff25da090016a2172997120c95fe6df6df1de05dacad8c85f2ac06549fe37f5d868dccdd9c9946068a1bf24c660e4e9c5dc2a60a97455b4a27bfc0c0de2afd8684d2a19d1b4ac3b1ee4e70257b29959f37b8058eb9da2d5c8fb7bc8c8e68decaa62e071b6d2e1b8a7575a2dcfdcf10ade5b40e41a35");
-    printf("\n%lu", lib->seed);
-    printf("\n%zu\n", a.size);
-    printf("%d\n", is_prime(a));
-    free(a.data);
-    */
-
-    // mesure the time of the function
     clock_t start, end;
     double cpu_time_used;
-/*
-    for (int i = 0; i < 1000000; ++i) {
-        bytes a = lib->random_bytes(16, &lib->seed);
-        lib->print(a);
-        printf("\n");
-        free(a.data);
-    }*/
+    start = clock();
+
+    bytes a = lib->hex_to_bytes("b33cfdbcfc292eab088c80c88d548eddb99edfc38df1a5b9212e8c762acb0e5f96ff2e717db218bcfbf261bcdcd88899c172063f75e127fe9a86559aeb60e375ae2ff73dc33b37274b1f2a611d9ba19696bba1b411206d82c351c14ad82c65479b1baceeea250c4c8a5f0eccd505e2e99b03224d7fd5e21bfc1c2c33675fbd2b886bfe3ce35fa58976ca9ff25da090016a2172997120c95fe6df6df1de05dacad8c85f2ac06549fe37f5d868dccdd9c9946068a1bf24c660e4e9c5dc2a60a97455b4a27bfc0c0de2afd8684d2a19d1b4ac3b1ee4e70257b29959f37b8058eb9da2d5c8fb7bc8c8e68decaa62e071b6d2e1b8a7575a2dcfdcf10ade5b40e41a35");
+    printf("%d\n", is_prime(a));
+    free(a.data);
+    a = lib->to_bytes(7);
+    printf("%d\n", is_prime(a));
+
+
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("%f", cpu_time_used);
     printf("\n");
-    //printf("\n");
-    bytes a = lib->hex_to_bytes("b33cfdbcfc292eab088c80c88d548eddb99edfc38df1a5b9212e8c762acb0e5f96ff2e717db218bcfbf261bcdcd88899c172063f75e127fe9a86559aeb60e375ae2ff73dc33b37274b1f2a611d9ba19696bba1b411206d82c351c14ad82c65479b1baceeea250c4c8a5f0eccd505e2e99b03224d7fd5e21bfc1c2c33675fbd2b886bfe3ce35fa58976ca9ff25da090016a2172997120c95fe6df6df1de05dacad8c85f2ac06549fe37f5d868dccdd9c9946068a1bf24c660e4e9c5dc2a60a97455b4a27bfc0c0de2afd8684d2a19d1b4ac3b1ee4e70257b29959f37b8058eb9da2d5c8fb7bc8c8e68decaa62e071b6d2e1b8a7575a2dcfdcf10ade5b40e41a35");
-    bytes b = lib->to_bytes(5);
-    bytes c = lib->mod(a, b);
-    lib->print(c);
-    printf("\n");
-    free(c.data);
-    free(b.data);
+
     free(a.data);
 
     free(lib);

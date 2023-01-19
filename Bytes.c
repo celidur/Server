@@ -31,21 +31,6 @@ void print_bytes(const bytes b) {
     for (st i = b.size - 1; i < b.size; i--)
         printf("%02x", b.data[i]);
 }
-
-static bytes double_bytes(const bytes a) {
-    bytes res = {NULL, a.size + 1};
-    res.data = malloc(res.size * sizeof(byte));
-    for (st i = 0; i < res.size; i++) {
-        int temp = a.data[i] << 1;
-        res.data[i] += temp % 256;
-        if (i + 1 < res.size)
-            res.data[i + 1] += temp / 256;
-    }
-    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
-    res.data = realloc(res.data, res.size * sizeof(byte));
-    return res;
-}
-
 static bytes add(const bytes a, const bytes b) {
     st size = (a.size > b.size ? a.size : b.size) + 1;
     byte *data = malloc(size * sizeof(byte));
@@ -66,6 +51,22 @@ static bytes add(const bytes a, const bytes b) {
     data = realloc(data, size * sizeof(byte));
     return (bytes) {data, size};
 }
+
+static bytes double_bytes(const bytes a) {
+    bytes res = {NULL, a.size + 1};
+    res.data = malloc(res.size * sizeof(byte));
+    for (st i = 0; i < a.size; i++) {
+        int temp = a.data[i] << 1;
+        res.data[i] += temp % 256;
+        if (i + 1 < res.size)
+            res.data[i + 1] += temp / 256;
+    }
+    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
+    res.data = realloc(res.data, res.size * sizeof(byte));
+    return res;
+}
+
+
 
 static bytes mul(const bytes a, const bytes b) {
     bytes res = {NULL, a.size + b.size};
