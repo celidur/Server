@@ -134,16 +134,24 @@ int main() {
     double cpu_time_used;
     start = clock();
 
-    bytes a = lib->hex_to_bytes("b33cfdbcfc292eab088c80c88d548eddb99edfc38df1a5b9212e8c762acb0e5f96ff2e717db218bcfbf261bcdcd88899c172063f75e127fe9a86559aeb60e375ae2ff73dc33b37274b1f2a611d9ba19696bba1b411206d82c351c14ad82c65479b1baceeea250c4c8a5f0eccd505e2e99b03224d7fd5e21bfc1c2c33675fbd2b886bfe3ce35fa58976ca9ff25da090016a2172997120c95fe6df6df1de05dacad8c85f2ac06549fe37f5d868dccdd9c9946068a1bf24c660e4e9c5dc2a60a97455b4a27bfc0c0de2afd8684d2a19d1b4ac3b1ee4e70257b29959f37b8058eb9da2d5c8fb7bc8c8e68decaa62e071b6d2e1b8a7575a2dcfdcf10ade5b40e41a35");
-    printf("%d\n", is_prime(a));
+    bytes a = lib->hex_to_bytes("b33cfdbcfc292eab088c80c88d548eddb99edfc38df1a59212e8c762acb0e5f96ff2e717db218bcfbf261bcdcd88899c172063f75e127fe9a86559aeb60e375ae2ff73dc33b37274b1f2a611d9ba19696bba1b411206d82c351c14ad82c65479b1baceeea250c4c8a5f0eccd505e2e99b03224d7fd5e21bfc1c2c33675fbd2b886bfe3ce35fa58976ca9ff25da090016a2172997120c95fe6df6df1de05dacad8c85f2ac06549fe37f5d868dccdd9c9946068a1bf24c660e4e9c5dc2a60a97455b4a27bfc0c0de2afd8684d2a19d1b4ac3b1ee4e70257b29959f37b8058eb9da2d5c8fb7bc8c8e68decaa62e071b6d2e1b8a7575a2dcfdcf10ade5b40e41a35");
+    //printf("%d\n", is_prime(a));
+    bytes b = lib->to_bytes(511);
+    lib->print(b);
+    printf("\n");
+    //bytes c = lib->mod(a, b);
+    bytes c = lib->half(a);
+    lib->print(c);
+    free(c.data);
+    free(b.data);
     free(a.data);
     a = lib->to_bytes(7);
-    printf("%d\n", is_prime(a));
+    //printf("\n%d\n", is_prime(a));
 
 
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("%f", cpu_time_used);
+    //printf("%f", cpu_time_used);
     printf("\n");
 
     free(a.data);

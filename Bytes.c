@@ -4,6 +4,14 @@
 
 #include "Bytes.h"
 
+enum bool{true=1, false=0};
+
+bytes alloc_bytes(st size) {
+    bytes b = {NULL, size};
+    b.data = malloc(size);
+    return b.data == NULL ? (bytes) {NULL, 0} : b;
+}
+
 bytes to_bytes(const unsigned long long n) {
     st size = 1;
     unsigned long long tmp = n;
@@ -30,7 +38,9 @@ unsigned long long to_ull(const bytes a) {
 void print_bytes(const bytes b) {
     for (st i = b.size - 1; i < b.size; i--)
         printf("%02x", b.data[i]);
+    printf("\n");
 }
+
 static bytes add(const bytes a, const bytes b) {
     st size = (a.size > b.size ? a.size : b.size) + 1;
     byte *data = malloc(size * sizeof(byte));
@@ -53,6 +63,7 @@ static bytes add(const bytes a, const bytes b) {
 }
 
 static bytes double_bytes(const bytes a) {
+    /*
     bytes res = {NULL, a.size + 1};
     res.data = malloc(res.size * sizeof(byte));
     for (st i = 0; i < a.size; i++) {
@@ -64,19 +75,25 @@ static bytes double_bytes(const bytes a) {
     while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
     res.data = realloc(res.data, res.size * sizeof(byte));
     return res;
+     */
+    bytes res = alloc_bytes(a.size + 1);
+    for (st i = 0; i < res.size; i++) {
+        // (i == 0 ? 0 : ((a.data[i - 1] & 0x80) >> 7)) +
+        res.data[i] =  (i >= a.size ? 0 : a.data[i] << 1);
+    }
+    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
+    res.data = realloc(res.data, res.size * sizeof(byte));
+    return res;
 }
 
 
-
 static bytes mul(const bytes a, const bytes b) {
-    bytes res = {NULL, a.size + b.size};
+    bytes res = alloc_bytes(a.size + b.size);
     byte *clear;
-    res.data = malloc(res.size * sizeof(byte));
     for (st i = 0; i < res.size; i++)
         res.data[i] = 0;
     for (st i = 0; i < a.size; i++) {
-        bytes tmp = {NULL, b.size + 1};
-        tmp.data = malloc(tmp.size * sizeof(byte));
+        bytes tmp = alloc_bytes(b.size + 1);
         for (st j = 0; j < b.size; j++) {
             int t = a.data[i] * b.data[j] + tmp.data[j];
             tmp.data[j] = t % 256;
@@ -98,33 +115,30 @@ static bytes mul(const bytes a, const bytes b) {
 }
 
 static bytes half(const bytes a) {
-    bytes res = {NULL, a.size};
-    res.data = malloc(res.size * sizeof(byte));
+    bytes res = alloc_bytes(a.size);
+    // shift the current byte and add the carry of the previous bytes in higher position
     for (st i = 0; i < res.size; i++) {
-        res.data[i] = a.data[i] >> 1;
-        if (i + 1 < res.size)
-            res.data[i] += a.data[i + 1] << 7;
+        res.data[i] = (a.data[i] >> 1) + ((i + 1) == res.size ? 0 : (a.data[i + 1] & 0x1) << 7);
     }
     while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
     res.data = realloc(res.data, res.size * sizeof(byte));
     return res;
-
 }
 
 
 static int sup(const bytes a, const bytes b) {
     //a > b
     if (a.size > b.size)
-        return 1;
+        return true;
     if (a.size < b.size)
-        return 0;
+        return false;
     for (st i = a.size - 1; i < a.size; i--) {
         if (a.data[i] > b.data[i])
-            return 1;
+            return true;
         if (a.data[i] < b.data[i])
-            return 0;
+            return false;
     }
-    return 0;
+    return false;
 
 }
 
