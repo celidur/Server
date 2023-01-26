@@ -12,6 +12,12 @@ bytes alloc_bytes(st size) {
     return b.data == NULL ? (bytes) {NULL, 0} : b;
 }
 
+int resize_bytes(bytes* b) {
+    while (b->size > 1 && b->data[b->size - 1] == 0) b->size--;
+    b->data = realloc(b->data, b->size * sizeof(byte));
+    return b->data == NULL ? false : true;
+}
+
 bytes to_bytes(const unsigned long long n) {
     st size = 1;
     unsigned long long tmp = n;
@@ -41,6 +47,24 @@ void print_bytes(const bytes b) {
     printf("\n");
 }
 
+static bytes double_bytes(const bytes a) {
+    bytes res = alloc_bytes(a.size + 1);
+    for (st i = 0; i < res.size; i++) {
+        res.data[i] = i == a.size ? 0 : (a.data[i] & 127) << 1; // shift the current byte
+        res.data[i] += i == 0 ? 0 : ((a.data[i - 1] & 0x80) >> 7); // add the carry of the previous byte
+    }
+    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
+}
+
+static bytes half(const bytes a) {
+    bytes res = alloc_bytes(a.size);
+    // shift the current byte and add the carry of the previous bytes in higher position
+    for (st i = 0; i < res.size; i++) {
+        res.data[i] = ((a.data[i]&254) >> 1) + ((i + 1) == a.size ? 0 : (a.data[i + 1] & 0x1) << 7);
+    }
+    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
+}
+
 static bytes add(const bytes a, const bytes b) {
     st size = (a.size > b.size ? a.size : b.size) + 1;
     byte *data = malloc(size * sizeof(byte));
@@ -61,31 +85,6 @@ static bytes add(const bytes a, const bytes b) {
     data = realloc(data, size * sizeof(byte));
     return (bytes) {data, size};
 }
-
-static bytes double_bytes(const bytes a) {
-    /*
-    bytes res = {NULL, a.size + 1};
-    res.data = malloc(res.size * sizeof(byte));
-    for (st i = 0; i < a.size; i++) {
-        int temp = a.data[i] << 1;
-        res.data[i] += temp % 256;
-        if (i + 1 < res.size)
-            res.data[i + 1] += temp / 256;
-    }
-    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
-    res.data = realloc(res.data, res.size * sizeof(byte));
-    return res;
-     */
-    bytes res = alloc_bytes(a.size + 1);
-    for (st i = 0; i < res.size; i++) {
-        // (i == 0 ? 0 : ((a.data[i - 1] & 0x80) >> 7)) +
-        res.data[i] =  (i >= a.size ? 0 : a.data[i] << 1);
-    }
-    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
-    res.data = realloc(res.data, res.size * sizeof(byte));
-    return res;
-}
-
 
 static bytes mul(const bytes a, const bytes b) {
     bytes res = alloc_bytes(a.size + b.size);
@@ -109,22 +108,8 @@ static bytes mul(const bytes a, const bytes b) {
         free(tmp.data);
         free(clear);
     }
-    while (res.data[res.size - 1] == 0 && res.size > 1) res.size--;
-    res.data = realloc(res.data, res.size * sizeof(byte));
-    return res;
+    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
-
-static bytes half(const bytes a) {
-    bytes res = alloc_bytes(a.size);
-    // shift the current byte and add the carry of the previous bytes in higher position
-    for (st i = 0; i < res.size; i++) {
-        res.data[i] = (a.data[i] >> 1) + ((i + 1) == res.size ? 0 : (a.data[i + 1] & 0x1) << 7);
-    }
-    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
-    res.data = realloc(res.data, res.size * sizeof(byte));
-    return res;
-}
-
 
 static int sup(const bytes a, const bytes b) {
     //a > b
@@ -165,9 +150,7 @@ static bytes sub(const bytes a, const bytes b) {
         }
         res.data[i] = temp;
     }
-    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
-    res.data = realloc(res.data, res.size * sizeof(byte));
-    return res;
+    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
 static bytes mod(const bytes a, const bytes b) {
@@ -200,9 +183,7 @@ static bytes mod(const bytes a, const bytes b) {
         free(temp);
     }
     free(x.data);
-    while (res.size > 1 && res.data[res.size - 1] == 0) res.size--;
-    res.data = realloc(res.data, res.size * sizeof(byte));
-    return res;
+    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
 static bytes pow_mod(const bytes b, const bytes e, const bytes m) {
@@ -235,16 +216,16 @@ static bytes pow_mod(const bytes b, const bytes e, const bytes m) {
         exp = half(exp);
         free(temp);
     }
-    return res;
+    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
 int equals(const bytes a, const bytes b) {
     if (a.size != b.size)
-        return 0;
+        return false;
     for (st i = 0; i < a.size; i++)
         if (a.data[i] != b.data[i])
-            return 0;
-    return 1;
+            return false;
+    return true;
 }
 
 void random_int(long int *seed) {
@@ -289,8 +270,11 @@ bytes hex_to_bytes(const char *hex) {
     bytes res = {NULL, size};
     res.data = malloc(res.size * sizeof(byte));
     for (st i = 0; i < res.size; i++) {
-        char temp[3] = {hex[i * 2], hex[i * 2 + 1], '\0'};
-        res.data[res.size - i - 1] = strtol(temp, NULL, 16);
+        char temp[3] = {'0', hex[strlen(hex) - 1 - i * 2], '\0'};
+        if (strlen(hex) - 1 - i * 2 != 0)
+            temp[0] = hex[strlen(hex) - 2 - i * 2];
+        res.data[i] = strtol(temp, NULL, 16);
+
     }
     return res;
 }
