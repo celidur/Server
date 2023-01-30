@@ -1,10 +1,20 @@
-//
-// Created by Gaetan on 2022-11-13.
-//
-
 #include "Bytes.h"
 
 enum bool{true=1, false=0};
+
+bytes* exec_fuc_1(bytes(*func)(const bytes a), bytes* a) {
+    byte* temp = a->data;
+    *a = func(*a);
+    free(temp);
+    return a;
+}
+
+bytes* exec_fuc_2(bytes(*func)(const bytes a, const bytes b), bytes* a, const bytes* b) {
+    byte* temp = a->data;
+    *a = func(*a, *b);
+    free(temp);
+    return a;
+}
 
 bytes alloc_bytes(st size) {
     bytes b = {NULL, size};
@@ -47,6 +57,7 @@ void print_bytes(const bytes b) {
     printf("\n");
 }
 
+// make a one with memmove
 static bytes double_bytes(const bytes a) {
     bytes res = alloc_bytes(a.size + 1);
     for (st i = 0; i < res.size; i++) {
@@ -58,34 +69,24 @@ static bytes double_bytes(const bytes a) {
 
 static bytes half(const bytes a) {
     bytes res = alloc_bytes(a.size);
-    // shift the current byte and add the carry of the previous bytes in higher position
     for (st i = 0; i < res.size; i++) {
-        res.data[i] = ((a.data[i]&254) >> 1) + ((i + 1) == a.size ? 0 : (a.data[i + 1] & 0x1) << 7);
+        res.data[i] = (a.data[i]&254) >> 1; // shift the current byte
+        res.data[i] += ((i + 1) == a.size ? 0 : (a.data[i + 1] & 0x1) << 7); // add the lower bit of the next byte
     }
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
 static bytes add(const bytes a, const bytes b) {
-    st size = (a.size > b.size ? a.size : b.size) + 1;
-    byte *data = malloc(size * sizeof(byte));
-    for (st i = 0; i < size; i++)
-        data[i] = 0;
-    for (st i = 0; i < size; i++) {
-        int d = data[i] + (i < a.size ? a.data[i] : 0) + (i < b.size ? b.data[i] : 0);
-        data[i] = d % 256;
-        d /= 256;
-        int k = 1;
-        while (d > 0) {
-            d = data[i + k] + d;
-            data[i + k] = d % 256;
-            d /= 256;
-        }
+    bytes res = alloc_bytes((a.size > b.size ? a.size : b.size) + 1);
+    byte carry = 0;
+    for (st i = 0; i < res.size; i++) {
+        int data = carry + (i < a.size ? a.data[i] : 0) + (i < b.size ? b.data[i] : 0);
+        res.data[i] = data & 255;
+        carry = data >> 8;
     }
-    while (size > 1 && data[size - 1] == 0) size--;
-    data = realloc(data, size * sizeof(byte));
-    return (bytes) {data, size};
+    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
-
+// TODO: Simplify this function
 static bytes mul(const bytes a, const bytes b) {
     bytes res = alloc_bytes(a.size + b.size);
     byte *clear;
@@ -132,55 +133,38 @@ static bytes sub(const bytes a, const bytes b) {
         printf("Error: a < b\n");
         return (bytes) {NULL, 0};
     }
-    bytes res = {NULL, a.size > b.size ? a.size : b.size};
-    res.data = malloc(res.size * sizeof(byte));
+    bytes res = alloc_bytes(a.size);
+    byte carry = 0;
     for (st i = 0; i < res.size; i++) {
-        res.data[i] = a.data[i];
-    }
-    for (st i = 0; i < b.size; i++) {
-        int temp = res.data[i] - b.data[i];
-        if (temp < 0) {
-            temp += 256;
-            st j = i + 1;
-            while (res.data[j] == 0) {
-                res.data[j] = 255;
-                j++;
-            }
-            res.data[j]--;
-        }
-        res.data[i] = temp;
+        int temp = a.data[i] - (i >= b.size ? 0 : b.data[i]) - carry; // a - b - carry
+        res.data[i] = temp < 0 ? temp + 256 : temp; // if temp < 0, add 256 to get the correct value
+        carry = temp < 0 ? 1 : 0; // if temp < 0, carry = 1
     }
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
 static bytes mod(const bytes a, const bytes b) {
-    byte *temp = NULL;
-    bytes x = {NULL, b.size};
-    x.data = malloc(x.size * sizeof(byte));
-    for (st i = 0; i < x.size; i++) {
-        x.data[i] = b.data[i];
-    }
-    bytes res = {NULL, a.size};
-    res.data = malloc(res.size * sizeof(byte));
-    for (st i = 0; i < res.size; i++) {
-        res.data[i] = a.data[i];
-    }
+    bytes x = alloc_bytes(b.size);
+    memmove(x.data, b.data, b.size); // x = b
+    bytes res = alloc_bytes(a.size);
+    memmove(res.data, a.data, a.size); // res = a
     bytes y = half(a);
+    st size = a.size <= 1 + b.size ? 0 : a.size - b.size - 1;
+    // use memmove to shift faster
+    x.data = realloc(x.data, x.size + size);
+    x.size += size;
+    memmove(x.data + size, x.data, x.size - size);
+    for (st i = 0; i < size; i++)
+        x.data[i] = 0;
     while (sup(x, y) == 0) {
-        temp = x.data;
-        x = double_bytes(x);
-        free(temp);
+        exec_fuc_1(&double_bytes, &x); // x = x << 1
     }
     free(y.data);
     while (sup(b, res) == 0) {
         if (sup(x, res) == 0) {
-            temp = res.data;
-            res = sub(res, x);
-            free(temp);
+            exec_fuc_2(&sub, &res, &x); // res = res - x
         }
-        temp = x.data;
-        x = half(x);
-        free(temp);
+        exec_fuc_1(&half, &x); // x = x >> 1
     }
     free(x.data);
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
@@ -189,33 +173,19 @@ static bytes mod(const bytes a, const bytes b) {
 static bytes pow_mod(const bytes b, const bytes e, const bytes m) {
     if (m.size == 1 && m.data[0] == 0)
         return to_bytes(0);
-    byte *temp = NULL;
-    bytes res = {NULL, 1};
-    bytes clear;
-    res.data = malloc(res.size * sizeof(byte));
+    bytes res = alloc_bytes(1);
     res.data[0] = 1;
     bytes base = mod(b, m);
-    bytes exp = {NULL, e.size};
-    exp.data = malloc(exp.size * sizeof(byte));
-    for (st i = 0; i < exp.size; i++)
-        exp.data[i] = e.data[i];
+    bytes exp = alloc_bytes(e.size);
+    memmove(exp.data, e.data, e.size); // copy e to exp
     while (sup(exp, to_bytes(0))) {
-        if (exp.data[0] % 2 == 1) {
-            temp = res.data;
-            clear = mul(res, base);
-            res = mod(clear, m);
-            free(temp);
-            free(clear.data);
-        }
-        temp = base.data;
-        clear = mul(base, base);
-        base = mod(clear, m);
-        free(clear.data);
-        free(temp);
-        temp = exp.data;
-        exp = half(exp);
-        free(temp);
+        if (exp.data[0] % 2 == 1)
+            exec_fuc_2(&mod, exec_fuc_2(&mul, &res, &base), &m); // res = (res * base) % m
+        exec_fuc_2(&mod, exec_fuc_2(&mul, &base, &base), &m); // base = (base * base) % m
+        exec_fuc_1(&half, &exp); // exp = half(exp)
     }
+    free(base.data);
+    free(exp.data);
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
