@@ -20,7 +20,7 @@ int miller_rabin(const bytes n) {
     bytes t = lib->to_bytes(0);
     bytes calc;
     byte *free_memory = NULL;
-    while (s.data[0] == 0){
+    while (s.data[0] == 0) {
         free_memory = s.data;
         s = lib->half(s);
         free(free_memory);
@@ -29,11 +29,10 @@ int miller_rabin(const bytes n) {
         free(free_memory);
     }
 
-    for (int i = 0; i < 10; i++)
-    {
+    for (int i = 0; i < 10; i++) {
         bytes a = lib->random_bytes(n.size * 2, &lib->seed);
         free_memory = a.data;
-        calc = lib->sub(n,num_4);
+        calc = lib->sub(n, num_4);
         a = lib->mod(a, calc);
         free(free_memory);
         free_memory = a.data;
@@ -113,16 +112,16 @@ int is_prime(const bytes n) {
             return 1;
         }
         bytes calc = lib->mod(n, low_prime);
+        free(low_prime.data);
         if (calc.size == 1 && calc.data[0] == 0) {
             free(calc.data);
-            free(low_prime.data);
             free(lib);
             return 0;
         }
         free(calc.data);
-        free(low_prime.data);
     }
     free(lib);
+    printf("miller_rabin\n");
     return miller_rabin(n);
 }
 
@@ -133,19 +132,17 @@ int main() {
     clock_t start, end;
     double cpu_time_used;
     start = clock();
-
-
-    bytes a = lib->hex_to_bytes("59AC90323BD0F0E1B2B3E9B4B5B6B7B8B9BABBBCBDBEBFC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDFE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF57489282AC4523784BDEAE1E");
-    bytes b = lib->to_bytes(156374646478458480);
-
-    bytes c = lib->mod(a, b);
-
+    bytes a = lib->random_bytes(40959, &lib->seed);
+    bytes b = lib->random_bytes(40959, &lib->seed);
+    bytes c = lib->mul(a, b);
+    //bytes d = lib->mul2(a, b);
+    lib->print(a);
+    lib->print(b);
     lib->print(c);
-
     free(a.data);
     free(b.data);
     free(c.data);
-
+    //free(d.data);
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("%f", cpu_time_used);

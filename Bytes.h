@@ -34,6 +34,8 @@ typedef struct {
 
     bytes (*mul)(bytes a, bytes b);
 
+    bytes (*mul2)(bytes a, bytes b);
+
     bytes (*sub)(bytes a, bytes b);
 
     int (*sup)(bytes a, bytes b);
