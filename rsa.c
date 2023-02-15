@@ -132,8 +132,8 @@ int main() {
     clock_t start, end;
     double cpu_time_used;
     start = clock();
-    bytes a = lib->random_bytes(40959, &lib->seed);
-    bytes b = lib->random_bytes(40959, &lib->seed);
+    bytes a = lib->random_bytes(50, &lib->seed);
+    bytes b = lib->random_bytes(50, &lib->seed);
     bytes c = lib->mul(a, b);
     //bytes d = lib->mul2(a, b);
     lib->print(a);

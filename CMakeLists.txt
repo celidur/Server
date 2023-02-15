@@ -5,7 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 include_directories(.)
 
-add_executable(Server
+add_executable(
         Bytes.c
         Bytes.h
         rsa.c
