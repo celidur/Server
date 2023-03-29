@@ -18,10 +18,23 @@ bytes *exec_fn_2(bytes(*func)(const bytes a, const bytes b), bytes *a, const byt
     return a;
 }
 
+bytes *exec_fn_3(bytes(*func)(const bytes a, const bytes b, const bytes c), bytes *a, const bytes *b, const bytes *c) {
+    byte *temp = a->data;
+    *a = func(*a, *b, *c);
+    free(temp);
+    return a;
+}
+
 bytes alloc_bytes(st size) {
     bytes b = {NULL, size};
     b.data = malloc(size);
     return b.data == NULL ? (bytes) {NULL, 0} : b;
+}
+
+void free_bytes(bytes *b) {
+    free(b->data);
+    b->data = NULL;
+    b->size = 0;
 }
 
 int resize_bytes(bytes *b) {
@@ -54,8 +67,9 @@ unsigned long long to_ull(const bytes a) {
 }
 
 void print_bytes(const bytes b) {
+    printf("0x");
     for (st i = b.size - 1; i < b.size; i--)
-        printf("0x%02x", b.data[i]);
+        printf("%02x", b.data[i]);
     printf("\n");
 }
 
@@ -123,7 +137,6 @@ static bytes add(const bytes a, const bytes b) {
 // TODO: Simplify this function
 static bytes mul(const bytes a, const bytes b) {
     bytes res = alloc_bytes(a.size + b.size);
-    byte *clear;
     for (st i = 0; i < res.size; i++)
         res.data[i] = 0;
     for (st i = 0; i < a.size; i++) {
@@ -134,14 +147,10 @@ static bytes mul(const bytes a, const bytes b) {
             tmp.data[j + 1] = t / 256;
         }
         for (int j = 0; j < 8 * i; ++j) {
-            clear = tmp.data;
-            tmp = double_bytes(tmp);
-            free(clear);
+            exec_fn_1(&double_bytes, &tmp);
         }
-        clear = res.data;
-        res = add(res, tmp);
-        free(tmp.data);
-        free(clear);
+        exec_fn_2(&add, &res, &tmp);
+        free_bytes(&tmp);
     }
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
@@ -183,19 +192,19 @@ static bytes mul2(const bytes a, const bytes b) {
     for (int i = 0; i < half_size; ++i) {
         exec_fn_1(double_bytes, &temp);
     }
-    free(temp.data);
+    free_bytes(&temp);
     for (int i = 0; i < size; ++i) {
         exec_fn_1(double_bytes, &z2);
     }
     bytes res = add(z0, z2);
     exec_fn_2(singe2 == 1 ? add : sub, &res, &temp);
-    free(a0.data);
-    free(a1.data);
-    free(b0.data);
-    free(b1.data);
-    free(z0.data);
-    free(z1.data);
-    free(z2.data);
+    free_bytes(&a0);
+    free_bytes(&a1);
+    free_bytes(&b0);
+    free_bytes(&b1);
+    free_bytes(&z0);
+    free_bytes(&z1);
+    free_bytes(&z2);
     return res;
 }
 
@@ -215,14 +224,14 @@ static bytes mod(const bytes a, const bytes b) {
     while (sup(x, y) == 0) {
         exec_fn_1(&double_bytes, &x); // x = x << 1
     }
-    free(y.data);
+    free_bytes(&y);
     while (sup(b, res) == 0) {
         if (sup(x, res) == 0) {
             exec_fn_2(&sub, &res, &x); // res = res - x
         }
         exec_fn_1(&half, &x); // x = x >> 1
     }
-    free(x.data);
+    free_bytes(&x);
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
@@ -241,10 +250,11 @@ static bytes pow_mod(const bytes b, const bytes e, const bytes m) {
             exec_fn_2(&mod, exec_fn_2(&mul, &res, &base), &m); // res = (res * base) % m
         exec_fn_2(&mod, exec_fn_2(&mul, &base, &base), &m); // base = (base * base) % m
         exec_fn_1(&half, &exp); // exp = half(exp)
+        printf("size of exp: %zu\n", exp.size);
     }
-    free(n_0.data);
-    free(base.data);
-    free(exp.data);
+    free_bytes(&n_0);
+    free_bytes(&base);
+    free_bytes(&exp);
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
@@ -308,6 +318,105 @@ bytes hex_to_bytes(const char *hex) {
     return res;
 }
 
+int miller_rabin(const bytes n, long int* seed) {
+    bytes num_2 = to_bytes(2);
+    bytes num_1 = to_bytes(1);
+    bytes num_4 = to_bytes(4);
+    bytes s = sub(n, num_1);
+    bytes t = to_bytes(0);
+    bytes calc;
+    while (s.data[0] % 2 == 0) {
+        exec_fn_1(&half, &s);
+        exec_fn_2(&add, &t, &num_1);
+    }
+
+    for (int i = 0; i < 10; i++) {
+        bytes a = random_bytes(n.size * 2, seed);
+        // a = random_bytes
+        calc = sub(n, num_4);
+        exec_fn_2(&mod, &a, &calc);
+        free_bytes(&calc);
+        exec_fn_2(&add, &a, &num_2);
+        // a = (a % (n - 4)) + 2;
+        print_bytes(a);
+        print_bytes(s);
+        print_bytes(n);
+        bytes x = pow_mod(a, s, n);
+        free_bytes(&a);
+        free_bytes(&s);
+
+        if (x.size == 1 && x.data[0] == 1) {
+            continue;
+        }
+        calc = sub(n, num_1);
+        bytes j = to_bytes(0);
+        while (equals(x, calc) == false) {
+            free_bytes(&calc);
+            calc = sub(t, num_1);
+            if (equals(j, calc) == true) {
+                free_bytes(&calc);
+                free_bytes(&j);
+                free_bytes(&t);
+                free_bytes(&num_1);
+                free_bytes(&num_2);
+                free_bytes(&num_4);
+                free_bytes(&x);
+                return false;
+            }
+            free_bytes(&calc);
+            exec_fn_2(&add, &j, &num_1); // j += 1;
+            exec_fn_3(&pow_mod, &x, &num_2, &n); // x = pow_mod(x, 2, n);
+            calc = sub(n, num_1);
+        }
+        free_bytes(&j);
+        free_bytes(&calc);
+        free_bytes(&x);
+    }
+    free_bytes(&t);
+    free_bytes(&num_2);
+    free_bytes(&num_1);
+    free_bytes(&num_4);
+    printf("prime\n");
+    return true;
+}
+
+int is_prime(const bytes n, long int* seed) {
+    if (n.size == 1 && (n.data[0] == 0 || n.data[0] == 1))
+        return false;
+    int low_primes[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97,
+                        101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193,
+                        197,
+                        199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311,
+                        313,
+                        317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433,
+                        439,
+                        443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569,
+                        571,
+                        577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683,
+                        691,
+                        701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827,
+                        829,
+                        839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971,
+                        977,
+                        983, 991, 997};
+    for (int i = 0; i < 168; i++) {
+        bytes low_prime = to_bytes(low_primes[i]);
+        if (equals(n, low_prime)) {
+            free_bytes(&low_prime);
+            return true;
+        }
+        bytes calc = mod(n, low_prime);
+        free_bytes(&low_prime);
+        if (calc.size == 1 && calc.data[0] == 0) {
+            free_bytes(&calc);
+            return false;
+        }
+        free_bytes(&calc);
+    }
+    printf("miller_rabin\n");
+    return miller_rabin(n, seed);
+}
+
 Bytes_lib *bytes_lib() {
     Bytes_lib *bytes_lib = malloc(sizeof(Bytes_lib));
     bytes_lib->add = add;
@@ -326,5 +435,6 @@ Bytes_lib *bytes_lib() {
     bytes_lib->random_bytes = random_bytes;
     bytes_lib->hex_to_bytes = hex_to_bytes;
     bytes_lib->seed = time(NULL);
+    bytes_lib->is_prime = is_prime;
     return bytes_lib;
 }

@@ -48,6 +48,8 @@ typedef struct {
 
     bytes (*hex_to_bytes)(const char *hex);
 
+    int (*is_prime)(const bytes n, long int* seed);
+
     long int seed;
 } Bytes_lib;
 
