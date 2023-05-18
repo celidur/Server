@@ -4,56 +4,80 @@ enum bool {
     true = 1, false = 0
 };
 
-bytes *exec_fn_1(bytes(*func)(const bytes a), bytes *a) {
-    byte *temp = a->data;
+bytes* exec_fn_1(bytes(* func)(const bytes a), bytes* a) {
+    byte* temp = a->data;
     *a = func(*a);
     free(temp);
     return a;
 }
 
-bytes *exec_fn_2(bytes(*func)(const bytes a, const bytes b), bytes *a, const bytes *b) {
-    byte *temp = a->data;
+bytes* exec_fn_2(bytes(* func)(const bytes a, const bytes b), bytes* a, const bytes* b) {
+    byte* temp = a->data;
     *a = func(*a, *b);
     free(temp);
     return a;
 }
 
-bytes *exec_fn_3(bytes(*func)(const bytes a, const bytes b, const bytes c), bytes *a, const bytes *b, const bytes *c) {
-    byte *temp = a->data;
+bytes* exec_fn_3(bytes(* func)(const bytes a, const bytes b, const bytes c), bytes* a, const bytes* b, const bytes* c) {
+    byte* temp = a->data;
     *a = func(*a, *b, *c);
     free(temp);
     return a;
 }
 
+void print_bytes(const bytes b) {
+    printf("0x");
+    for (st i = b.size - 1; i < b.size; i--)
+        printf("%02x", b.data[i]);
+    printf("\n");
+}
+
+void print_ull(const ulls b) {
+    print_bytes((bytes) {(byte*) b.data, b.size << 3});
+}
+
 bytes alloc_bytes(st size) {
+    size = ((size >> 3) + 1) << 3;
     bytes b = {NULL, size};
     b.data = malloc(size);
+    if (b.data == NULL)
+        printf("Error: alloc_bytes\n");
     return b.data == NULL ? (bytes) {NULL, 0} : b;
 }
 
-void free_bytes(bytes *b) {
+ulls alloc_ulls(st size) {
+    ulls b = {NULL, size};
+    b.data = malloc(size * sizeof(ull));
+    if (b.data == NULL)
+        printf("Error: alloc_ulls\n");
+    return b.data == NULL ? (ulls) {NULL, 0} : b;
+}
+
+void free_bytes(bytes* b) {
     free(b->data);
     b->data = NULL;
     b->size = 0;
 }
 
-int resize_bytes(bytes *b) {
+int resize_bytes(bytes* b) {
     while (b->size > 1 && b->data[b->size - 1] == 0) b->size--;
-    b->data = realloc(b->data, b->size * sizeof(byte));
-    return b->data == NULL ? false : true;
+    st size = b->size & 7 ? ((b->size >> 3) + 1) << 3 : b->size;
+    b->data = realloc(b->data, size * sizeof(byte));
+    if (b->data == NULL) {
+        b->size = 0;
+        printf("Error: resize_bytes\n");
+    }
+    return b->data != NULL;
 }
 
 bytes to_bytes(const unsigned long long n) {
     st size = 1;
     unsigned long long tmp = n;
     while (tmp /= 256) size++;
-    byte *data = malloc(size * sizeof(byte));
-    tmp = n;
-    for (st i = 0; i < size; i++) {
-        data[i] = tmp % 256;
-        tmp /= 256;
-    }
-    return (bytes) {data, size};
+    bytes b = alloc_bytes(size);
+    b.data = memcpy(b.data, &n, size);
+    resize_bytes(&b);
+    return b;
 }
 
 unsigned long long to_ull(const bytes a) {
@@ -64,13 +88,6 @@ unsigned long long to_ull(const bytes a) {
         tmp <<= 8;
     }
     return n;
-}
-
-void print_bytes(const bytes b) {
-    printf("0x");
-    for (st i = b.size - 1; i < b.size; i--)
-        printf("%02x", b.data[i]);
-    printf("\n");
 }
 
 static int sup(const bytes a, const bytes b) {
@@ -94,44 +111,58 @@ static bytes sub(const bytes a, const bytes b) {
         printf("Error: a < b\n");
         return (bytes) {NULL, 0};
     }
-    bytes res = alloc_bytes(a.size);
+    ulls a_ = convert_bytes(&a);
+    ulls b_ = convert_bytes(&b);
+    ulls res_ = alloc_ulls(a_.size);
+    res_.data = memcpy(res_.data, a_.data, a_.size * sizeof(ull));
     byte carry = 0;
-    for (st i = 0; i < res.size; i++) {
-        int temp = a.data[i] - (i >= b.size ? 0 : b.data[i]) - carry; // a - b - carry
-        res.data[i] = temp < 0 ? temp + 256 : temp; // if temp < 0, add 256 to get the correct value
-        carry = temp < 0 ? 1 : 0; // if temp < 0, carry = 1
+    for (st i = 0; i < b_.size; i++) {
+        ull carry2 = (a_.data[i] < b_.data[i] + carry);
+        res_.data[i] -= ~carry2 + 1 + b_.data[i] - carry + carry2 ;
+        carry = carry2;
     }
+    res_.data[b_.size] -= carry;
+    bytes res = convert_ull(&res_);
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
-// make a one with memmove
 static bytes double_bytes(const bytes a) {
     bytes res = alloc_bytes(a.size + 1);
-    for (st i = 0; i < res.size; i++) {
-        res.data[i] = i == a.size ? 0 : (a.data[i] & 127) << 1; // shift the current byte
-        res.data[i] += i == 0 ? 0 : ((a.data[i - 1] & 0x80) >> 7); // add the carry of the previous byte
+    res.data[0] = a.data[0] & 127; // shift the first byte
+    for (st i = 1; i < a.size; i++) {
+        res.data[i] = (a.data[i] & 127) << 1; // shift the current byte
+        res.data[i] += (a.data[i - 1] & 0x80) >> 7; // add the carry of the previous byte
     }
-    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
+    res.data[a.size] += (a.data[a.size - 1] & 0x80) >> 7; // add the carry of the previous byte
+    resize_bytes(&res);
+    return res;
 }
 
 static bytes half(const bytes a) {
     bytes res = alloc_bytes(a.size);
-    for (st i = 0; i < res.size; i++) {
-        res.data[i] = (a.data[i] & 254) >> 1; // shift the current byte
-        res.data[i] += ((i + 1) == a.size ? 0 : (a.data[i + 1] & 0x1) << 7); // add the lower bit of the next byte
+    for (st i = 0; i < res.size - 1; i++) {
+        res.data[i] += (a.data[i + 1] & 0x1) << 7; // add the lower bit of the next byte
+        res.data[i] = (a.data[i] & 0xfe) >> 1; // shift the current byte
     }
+    res.data[a.size - 1] = (a.data[a.size - 1] & 0xfe) >> 1; // shift the current byte
     return resize_bytes(&res) ? res : (bytes) {NULL, 0};
 }
 
 static bytes add(const bytes a, const bytes b) {
-    bytes res = alloc_bytes((a.size > b.size ? a.size : b.size) + 1);
+    if (a.size < b.size)
+        return add(b, a);
+    ulls a_ = convert_bytes(&a);
+    ulls b_ = convert_bytes(&b);
+    ulls res_ = alloc_ulls(a_.size + 1);
+    res_.data = memcpy(res_.data, a_.data, a_.size * sizeof(ull));
     byte carry = 0;
-    for (st i = 0; i < res.size; i++) {
-        int data = carry + (i < a.size ? a.data[i] : 0) + (i < b.size ? b.data[i] : 0);
-        res.data[i] = data & 255;
-        carry = data >> 8;
+    for (st i = 0; i < b_.size; i++) {
+        res_.data[i] += carry + b_.data[i];
+        carry = a_.data[i] > 0xffffffffffffffff - b_.data[i];
     }
-    return resize_bytes(&res) ? res : (bytes) {NULL, 0};
+    res_.data[b_.size] = carry;
+    bytes res = convert_ull(&res_);
+    return res;
 }
 
 // TODO: Simplify this function
@@ -157,7 +188,7 @@ static bytes mul(const bytes a, const bytes b) {
 
 
 static bytes mul2(const bytes a, const bytes b) {
-    if (a.size <= 4 || b.size <= 4) {
+    if (a.size <= 8 || b.size <= 8) {
         return sup(a, b) ? mul(a, b) : mul(b, a);
     }
 
@@ -183,7 +214,7 @@ static bytes mul2(const bytes a, const bytes b) {
     bytes z2 = mul2(a1, b1);
 
     int signe = sup(z1, z0) ? 1 : -1;
-    byte *c;
+    byte* c;
     bytes temp = signe == 1 ? sub(z1, z0) : sub(z0, z1);
     c = temp.data;
     int singe2 = sup(temp, z2) ? 1 : -1;
@@ -267,11 +298,11 @@ int equals(const bytes a, const bytes b) {
     return true;
 }
 
-void random_int(long int *seed) {
+void random_int(long int* seed) {
     *seed = (*seed * 1103515245 + 12345) % 2147483648;
 }
 
-void shuffle_bytes(bytes *a, long int *seed) {
+void shuffle_bytes(bytes* a, long int* seed) {
     for (st i = 0; i < a->size; i++) {
         st j = i + (*seed % (a->size - i));
         byte temp = a->data[i];
@@ -285,9 +316,8 @@ void shuffle_bytes(bytes *a, long int *seed) {
     }
 }
 
-bytes random_bytes(const st size, long int *seed) {
-    bytes res = {NULL, size};
-    res.data = malloc(res.size * sizeof(byte));
+bytes random_bytes(const st size, long int* seed) {
+    bytes res = alloc_bytes(size);
     long int temp = *seed;
     long int temp2;
     for (st i = 0; i < res.size; i++) {
@@ -304,17 +334,16 @@ bytes random_bytes(const st size, long int *seed) {
 }
 
 
-bytes hex_to_bytes(const char *hex) {
+bytes hex_to_bytes(const char* hex) {
     st size = (strlen(hex) + 1) / 2;
-    bytes res = {NULL, size};
-    res.data = malloc(res.size * sizeof(byte));
-    for (st i = 0; i < res.size; i++) {
+    bytes res = alloc_bytes(size);
+    for (st i = 0; i < size; i++) {
         char temp[3] = {'0', hex[strlen(hex) - 1 - i * 2], '\0'};
         if (strlen(hex) - 1 - i * 2 != 0)
             temp[0] = hex[strlen(hex) - 2 - i * 2];
         res.data[i] = strtol(temp, NULL, 16);
-
     }
+    resize_bytes(&res);
     return res;
 }
 
@@ -417,8 +446,8 @@ int is_prime(const bytes n, long int* seed) {
     return miller_rabin(n, seed);
 }
 
-Bytes_lib *bytes_lib() {
-    Bytes_lib *bytes_lib = malloc(sizeof(Bytes_lib));
+Bytes_lib* bytes_lib() {
+    Bytes_lib* bytes_lib = malloc(sizeof(Bytes_lib));
     bytes_lib->add = add;
     bytes_lib->double_bytes = double_bytes;
     bytes_lib->to_bytes = to_bytes;
@@ -437,4 +466,19 @@ Bytes_lib *bytes_lib() {
     bytes_lib->seed = time(NULL);
     bytes_lib->is_prime = is_prime;
     return bytes_lib;
+}
+
+bytes convert_ull(const ulls* n) {
+    bytes b = {NULL, n->size << 3};
+    b.data = (byte*) n->data;
+    resize_bytes(&b);
+    return b;
+}
+
+ulls convert_bytes(const bytes* b) {
+    size_t size = b->size >> 3;
+    size_t i = b->size & 7;
+    ulls n = {NULL, size + (i != 0)};
+    n.data = (ull*) b->data;
+    return n;
 }

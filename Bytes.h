@@ -11,11 +11,21 @@
 #include <string.h>
 
 typedef unsigned char byte;
+typedef unsigned long long int ull;
 typedef size_t st;
 typedef struct {
     byte *data;
     st size;
 } bytes;
+
+typedef struct {
+    ull *data;
+    st size;
+} ulls;
+
+bytes convert_ull(const ulls* n);
+
+ulls convert_bytes(const bytes* b);
 
 typedef struct {
     bytes (*add)(bytes a, bytes b);
