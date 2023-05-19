@@ -10,8 +10,9 @@
 char *get_buffer(unsigned long long int size) {
     char *buffer = malloc(size);
     if (buffer == NULL) {
-        exit(EXIT_FAILURE);
+        return NULL;
     }
+    memset(buffer, 0, size);
     return buffer;
 }
 
