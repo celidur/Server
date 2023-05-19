@@ -10,11 +10,8 @@ include_directories(.)
 
 add_executable(Server
         rsa.c
-        rsa.h
-        List.c
-        List.h
         main.c server.c
-        )
+        Buffer.c)
 
 include_directories(${PROJECT_NAME} ${GMP_DIR}/include)
 

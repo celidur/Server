@@ -1,10 +1,9 @@
-#pragma once
-#ifndef RSA_H
-
 #include <stdlib.h>
-#include <time.h>
+#include <stdio.h>
 #include <gmp.h>
 
+#ifndef RSA_H
+#define RSA_H
 
 typedef struct {
     mpz_t n;
@@ -35,6 +34,4 @@ void clear_keys(key_pair pair);
 
 void clear_message(message msg);
 
-
 #endif
-#define RSA_H

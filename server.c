@@ -4,9 +4,9 @@
 
 #include "server.h"
 
-data server(char *buffer, key_pair key) {
-    char *buffer3 = split(buffer, '|');
-    char *buffer2;
+data server(char* buffer, key_pair key) {
+    char* buffer3 = split(buffer, '|');
+    char* buffer2;
     data d;
     d.return_code = 0;
     if (buffer3 != NULL && strlen(buffer) == 0 && strlen(buffer3) != 0) {
@@ -25,8 +25,8 @@ data server(char *buffer, key_pair key) {
         d.size = strlen(buffer2);
         d.return_code = 1;
     } else if (strcmp(buffer, "key") == 0) {
-        size_t size = (mpz_sizeinbase (key.pub->n, 2) + CHAR_BIT-1) / CHAR_BIT;
-        buffer2 = (char *)malloc (size);
+        size_t size = (mpz_sizeinbase(key.pub->n, 2) + CHAR_BIT - 1) / CHAR_BIT;
+        buffer2 = (char*) malloc(size);
         mpz_export(buffer2, &size, 1, 1, 0, 0, key.pub->n);
         d.size = size;
     } else {
@@ -74,20 +74,17 @@ int send_client(data* d, struct pollfd fds) {
     return FALSE;
 }
 
-int recv_client(char** buffer, struct pollfd fds){
+int recv_client(char** buffer, struct pollfd fds) {
     unsigned long long header_size = 0;
     ssize_t rc = recv(fds.fd, &header_size, sizeof(unsigned long long), 0);
-    if (rc < 0)
-    {
-        if (errno != EWOULDBLOCK)
-        {
+    if (rc < 0) {
+        if (errno != EWOULDBLOCK) {
             perror("  recv() failed");
             return close_state;
         }
         return break_state;
     }
-    if (rc == 0)
-    {
+    if (rc == 0) {
         printf("  Connection closed\n");
         return close_state;
     }
@@ -95,10 +92,8 @@ int recv_client(char** buffer, struct pollfd fds){
 
     *buffer = get_buffer(header_size);
     rc = recv(fds.fd, *buffer, header_size, 0);
-    if (rc < 0)
-    {
-        if (errno != EWOULDBLOCK)
-        {
+    if (rc < 0) {
+        if (errno != EWOULDBLOCK) {
             perror("  recv() failed");
             return close_state;
         }
@@ -106,8 +101,7 @@ int recv_client(char** buffer, struct pollfd fds){
         *buffer = NULL;
         return break_state;
     }
-    if (rc == 0)
-    {
+    if (rc == 0) {
         printf("  Connection closed\n");
         free(*buffer);
         *buffer = NULL;
@@ -116,7 +110,7 @@ int recv_client(char** buffer, struct pollfd fds){
     return continue_state;
 }
 
-int config(struct pollfd* fds){
+int config(struct pollfd* fds) {
     int on = 1;
     struct sockaddr_in addr;
 
@@ -126,16 +120,14 @@ int config(struct pollfd* fds){
         return EXIT_FAILURE;
     }
     // Allow socket descriptor to be reuseable
-    ssize_t rc = setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, (char *) &on, sizeof(on));
-    if (rc == SOCKET_ERROR)
-    {
+    ssize_t rc = setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, (char*) &on, sizeof(on));
+    if (rc == SOCKET_ERROR) {
         perror("setsockopt");
         return EXIT_FAILURE;
     }
     // set nonblocking connection for socket
-    rc = ioctl(listen_sd, FIONBIO, (char *)&on);
-    if (rc == SOCKET_ERROR)
-    {
+    rc = ioctl(listen_sd, FIONBIO, (char*) &on);
+    if (rc == SOCKET_ERROR) {
         perror("ioctl() failed");
         close(listen_sd);
         return EXIT_FAILURE;
@@ -143,16 +135,14 @@ int config(struct pollfd* fds){
     addr.sin_addr.s_addr = htonl(INADDR_ANY);  // * Adresse IP automatique * //
     addr.sin_family = AF_INET;                 // * Protocole familial (IP) * //
     addr.sin_port = htons(SERVER_PORT);
-    rc = bind(listen_sd, (struct sockaddr *)&addr, sizeof(addr));
-    if (rc == SOCKET_ERROR)
-    {
+    rc = bind(listen_sd, (struct sockaddr*) &addr, sizeof(addr));
+    if (rc == SOCKET_ERROR) {
         perror("bind() failed");
         close(listen_sd);
         return EXIT_FAILURE;
     }
     rc = listen(listen_sd, 32);
-    if (rc == SOCKET_ERROR)
-    {
+    if (rc == SOCKET_ERROR) {
         perror("listen() failed");
         close(listen_sd);
         return EXIT_FAILURE;

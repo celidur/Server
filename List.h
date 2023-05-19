@@ -4,11 +4,11 @@
 //
 //  Created by Gaetan on 2022-09-15.
 //
-
-#ifndef List_h
-
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef List_h
+#define List_h
 
 typedef struct List List, *test;
 typedef struct Element Element;
@@ -55,11 +55,4 @@ static Client *removeElement(List *list, int index);
 
 static Client *findElement(List *, char *);
 
-char *get_buffer(unsigned long long int size);
-
-char *IntToString(unsigned int number);
-
-char *split(char *str, char delim);
-
 #endif /* List_h */
-#define List_h

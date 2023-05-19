@@ -1,13 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/poll.h>
-#include <sys/socket.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stddef.h>
-#include <string.h>
 #include "server.h"
-#include "rsa.h"
+
 #define SERVER_NAME "server"
 #define SERVER_PASSWORD "password"
 #define TIMEOUT 180000  // 3 minutes
@@ -28,6 +20,8 @@ int main ()
         return EXIT_FAILURE;
 
     int listen_sd = fds[0].fd;
+
+    printf("  Server is ready for client connections...\n");
 
     do
     {
