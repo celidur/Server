@@ -26,6 +26,9 @@ char *split(char *str, char delim) {
             break;
         }
     }
+    if (end == 0) {
+        return NULL;
+    }
     token = get_buffer(strlen(str) - i);
     for (int j = i; j < strlen(str); ++j) {
         token[j - i] = str[j];

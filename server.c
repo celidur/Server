@@ -10,17 +10,16 @@ data server(char *buffer, List *list, unsigned int *hash) {
     data d;
     d.return_code = 0;
     d.buffer = buffer2;
-    if (strlen(buffer) == 0 & strlen(buffer3) != 0) {
+    if (buffer3 != NULL && strlen(buffer) == 0 && strlen(buffer3) != 0) {
         memset(buffer, 0, sizeof(buffer3));
         strcpy(buffer, buffer3);
         free(buffer3);
         buffer3 = get_buffer(0);
     }
     printf(" client send : %s\n", buffer);
-    if (strlen(buffer3) != 0) {
+    if (buffer3 != NULL && strlen(buffer3) != 0) {
         printf(" client send : %s\n", buffer3);
     }
-    free(buffer3);
     if (strcmp(buffer, "exit") == 0) {
         memset(buffer2, 0, sizeof(*buffer2));
         strcpy(buffer2, "Server closed");
@@ -41,6 +40,5 @@ data server(char *buffer, List *list, unsigned int *hash) {
         memset(buffer2, 0, sizeof(*buffer2));
         strcpy(buffer2, "Hello from server");
     }
-
     return d;
 }

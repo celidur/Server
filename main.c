@@ -10,14 +10,18 @@
 #include <string.h>
 #include "server.h"
 #include "List.h"
+#include "rsa.h"
 #define SERVER_PORT  12345
 #define INVALID_SOCKET (-1)
 #define SOCKET_ERROR (-1)
 #define TRUE             1
 #define FALSE            0
+#define SERVER_NAME "server"
+#define SERVER_PASSWORD "password"
 
 int main ()
 {
+    key_pair key = generate_key(SERVER_NAME, SERVER_PASSWORD, 0);
     int    on = 1;
     long rc;
     int listen_sd, new_sd;
@@ -172,7 +176,7 @@ int main ()
                 do
                 {
                     // reset buffer
-                    //printf("  Receiving data from client");
+//                    printf("  Receiving data from client");
                     if (header_size == NULL)
                     {
                         header_size = malloc(sizeof(unsigned long long));
@@ -198,7 +202,9 @@ int main ()
                             close_conn = TRUE;
                             break;
                         }
+//                        printf("  %llu bytes received\n", *header_size);
                     } else {
+//                        printf(" partie 2\n ");
                         buffer = get_buffer(*header_size);
                         rc = recv(fds[i].fd, buffer, *header_size, 0);
                         if (rc < 0)
